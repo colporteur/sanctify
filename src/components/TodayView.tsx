@@ -1,10 +1,10 @@
 "use client";
 import { useEffect, useState } from "react";
 import { fetchDay, postLog, type DayData } from "@/lib/client";
-import type { DayScore, LimitConfig } from "@/lib/types";
+import type { DayScore } from "@/lib/types";
 import ScoreRing from "./ScoreRing";
 import ItemRow from "./ItemRow";
-import Timers from "./Timers";
+import Timers, { isTimerItem } from "./Timers";
 
 export default function TodayView() {
   const [data, setData] = useState<DayData | null>(null);
@@ -24,11 +24,7 @@ export default function TodayView() {
       cur ? { ...cur, logs: [...cur.logs.filter((x) => x.itemId !== l.itemId), l] } : cur
     );
 
-  // hour-limit items are rendered as timers; everything else as rows
-  const isTimerItem = (id: string) => {
-    const it = items.find((i) => i.id === id);
-    return it?.shape === "limit" && (it.config as LimitConfig).unit === "h";
-  };
+  // timer-enabled items render as timer cards up top; everything else as rows
 
   return (
     <main className="px-4 pt-6 space-y-5">
@@ -45,7 +41,7 @@ export default function TodayView() {
       <Timers items={items} logs={logs} date={date} onDay={onDay} />
 
       {domains.map((domain) => {
-        const dItems = items.filter((i) => i.domainId === domain.id && !isTimerItem(i.id));
+        const dItems = items.filter((i) => i.domainId === domain.id && !isTimerItem(i));
         const dScore = day.domains.find((d) => d.domainId === domain.id)?.score ?? null;
         if (dItems.length === 0 && domain.id !== "home") return null;
         return (

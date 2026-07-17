@@ -30,11 +30,19 @@ export async function postLog(body: Record<string, unknown>): Promise<{ day: Day
   return res.json();
 }
 
-// ---- dual timers, persisted in localStorage ----
+// ---- timers, persisted in localStorage ----
+export interface TimerSession {
+  start: number; // epoch ms
+  end: number; // epoch ms
+  mins: number;
+  estimated?: boolean; // end was entered manually after forgetting to stop
+}
+
 export interface TimerState {
-  startedAt: number | null; // epoch ms
+  startedAt: number | null; // epoch ms of the running session's start (the logged timestamp)
   bankedMinutes: number; // minutes accumulated today from stops + chunks
   date: string;
+  sessions?: TimerSession[]; // start/stop history for the day (kept in the log's detail)
 }
 
 export function loadTimer(key: string, date: string): TimerState {

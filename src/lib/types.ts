@@ -23,6 +23,7 @@ export interface QuantityConfig {
   target: number;
   unit: string;
   step?: number; // one-tap increment
+  timer?: boolean; // render as a count-up timer card (minutes-based items like reading)
 }
 
 export interface LimitConfig {

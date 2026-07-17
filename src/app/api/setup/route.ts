@@ -34,6 +34,15 @@ export async function GET(req: NextRequest) {
 
   await seedAll(db);
 
+  // Idempotent data migrations for existing installs (seed uses ON CONFLICT DO NOTHING,
+  // so config changes to already-seeded rows are applied here).
+  const MIGRATIONS = [
+    `UPDATE items SET config = config || '{"timer": true}'::jsonb WHERE id = 'reading'`,
+  ];
+  for (const m of MIGRATIONS) {
+    await sql.query(m);
+  }
+
   return NextResponse.json({
     ok: true,
     ddl: `${results.length} statements (${results.filter((r) => r === "ok").length} applied)`,

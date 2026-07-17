@@ -72,7 +72,7 @@ export async function seedAll(db: NeonHttpDatabase<typeof schema>) {
       { id: "vibecoding-hours", domainId: "balance", name: "Vibecoding hours", shape: "limit",
         config: { cap: 2, unit: "h", penaltyPerUnit: 25 }, schedule: { kind: "daily" }, sort: 2 },
       { id: "reading", domainId: "balance", name: "Daily reading", shape: "quantity",
-        config: { target: 20, unit: "min", step: 10 }, schedule: { kind: "daily" }, sort: 3 },
+        config: { target: 20, unit: "min", step: 10, timer: true }, schedule: { kind: "daily" }, sort: 3 },
 
       // ---- Home ----
       { id: "cleaning", domainId: "home", name: "Tidying checklist", shape: "checklist",
