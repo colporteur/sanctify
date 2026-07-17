@@ -35,7 +35,11 @@ export default function ItemRow({ item, log, date, onDay, onLog }: Props) {
   const naBtn = (
     <button
       onClick={() => send(null, undefined, !na)}
-      className={`text-[10px] px-1.5 py-1 rounded ${na ? "bg-zinc-500 text-white font-medium" : "text-zinc-500"}`}
+      className={`text-xs px-2 py-1.5 rounded-lg border font-medium ${
+        na
+          ? "bg-zinc-400 border-zinc-400 text-zinc-900 animate-pop"
+          : "bg-zinc-800/80 border-zinc-600 text-zinc-400"
+      }`}
       title="Mark not applicable today"
     >
       N/A
