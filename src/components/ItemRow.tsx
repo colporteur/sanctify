@@ -47,7 +47,7 @@ export default function ItemRow({ item, log, date, onDay, onLog }: Props) {
   );
 
   const rowCls = `flex items-center justify-between gap-2 py-3 ${na ? "opacity-40" : ""}`;
-  const name = <span className="text-[15px] text-zinc-100">{item.name}</span>;
+  const name = <span className="text-[15px] font-medium text-zinc-50">{item.name}</span>;
 
   // ----- multi-slot binary (insulin) -----
   const binCfg = item.config as BinaryConfig;
@@ -117,7 +117,7 @@ export default function ItemRow({ item, log, date, onDay, onLog }: Props) {
         <div className="flex items-center justify-between gap-2">
           <div className="flex-1">
             {name}
-            <div className={`text-sm tabular-nums ${pct >= 100 ? "text-emerald-400 font-medium" : "text-zinc-400"}`}>
+            <div className={`text-sm tabular-nums ${pct >= 100 ? "text-emerald-400 font-medium" : "text-zinc-300"}`}>
               {v} / {cfg.target} {cfg.unit} {pct >= 100 && "✓"}
             </div>
             {/* progress bar = immediate visual confirmation of each tap */}
@@ -165,7 +165,7 @@ export default function ItemRow({ item, log, date, onDay, onLog }: Props) {
         <div className="flex items-center justify-between gap-2">
           <div className="flex-1">
             {name}
-            <div className={`text-sm tabular-nums ${over ? "text-red-400 font-semibold" : "text-zinc-400"}`}>
+            <div className={`text-sm tabular-nums ${over ? "text-red-400 font-semibold" : "text-zinc-300"}`}>
               {v} of max {cfg.cap} {cfg.unit} {over && "— over!"}
             </div>
             {/* dot per unit up to cap; extras go red */}

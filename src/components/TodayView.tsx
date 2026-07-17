@@ -66,7 +66,7 @@ export default function TodayView() {
               {dItems.map((item) =>
                 item.shape === "checklist" ? (
                   <div key={item.id} className="py-2.5">
-                    <div className="text-[15px] text-zinc-100 mb-1.5">{item.name}</div>
+                    <div className="text-[15px] font-medium text-zinc-50 mb-1.5">{item.name}</div>
                     {cleaningTasks.length === 0 && (
                       <div className="text-sm text-zinc-400">Nothing due today 🎉</div>
                     )}
@@ -103,8 +103,8 @@ export default function TodayView() {
                           >
                             {done ? "✓" : ""}
                           </span>
-                          <span className={`text-sm ${done ? "text-zinc-500 line-through" : "text-zinc-200"}`}>
-                            <span className={done ? "" : "text-zinc-400"}>{t.area}:</span> {t.task}
+                          <span className={`text-[15px] ${done ? "text-zinc-500 line-through" : "text-zinc-50"}`}>
+                            <span className={done ? "" : "text-zinc-300"}>{t.area}:</span> {t.task}
                           </span>
                         </button>
                       );
