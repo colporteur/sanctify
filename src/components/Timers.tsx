@@ -64,7 +64,7 @@ function Timer({
   }
 
   return (
-    <div className="rounded-xl border border-zinc-800 p-3">
+    <div className="rounded-xl bg-zinc-800/60 border border-zinc-700 p-3">
       <div className="flex items-center justify-between">
         <div>
           <div className="text-sm">{item.name.replace(" hours", "")}</div>
@@ -74,8 +74,10 @@ function Timer({
         </div>
         <button
           onClick={toggle}
-          className={`w-12 h-12 rounded-full text-xl border ${
-            t.startedAt ? "bg-red-600 border-red-600 animate-pulse" : "bg-zinc-800 border-zinc-600"
+          className={`w-14 h-14 rounded-full text-xl border-2 ${
+            t.startedAt
+              ? "bg-red-500 border-red-400 text-white animate-pulse"
+              : "bg-emerald-600 border-emerald-500 text-white"
           }`}
         >
           {t.startedAt ? "⏸" : "▶"}
@@ -86,14 +88,14 @@ function Timer({
           <button
             key={m}
             onClick={() => addChunk(m)}
-            className="text-xs px-2 py-1 rounded-lg border border-zinc-700 text-zinc-400"
+            className="text-sm px-2.5 py-1.5 rounded-lg bg-zinc-700 border border-zinc-500 text-zinc-100 font-medium"
           >
             +{m}m
           </button>
         ))}
         <button
           onClick={() => addChunk(-15)}
-          className="text-xs px-2 py-1 rounded-lg border border-zinc-700 text-zinc-500"
+          className="text-sm px-2.5 py-1.5 rounded-lg border border-zinc-600 text-zinc-400"
         >
           −15m
         </button>

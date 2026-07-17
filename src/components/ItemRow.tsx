@@ -9,35 +9,41 @@ interface Props {
   log?: LogEntry;
   date: string;
   onDay: (d: DayScore) => void;
+  /** Optimistic local update so the row reflects the tap instantly. */
+  onLog?: (l: LogEntry) => void;
 }
 
-function naButton(item: Item, date: string, onDay: (d: DayScore) => void, na: boolean) {
-  return (
+export default function ItemRow({ item, log, date, onDay, onLog }: Props) {
+  const [flash, setFlash] = useState(false);
+  const na = !!log?.na;
+
+  async function send(
+    value: number | null,
+    detail?: Record<string, unknown>,
+    naFlag = false,
+    source: LogEntry["source"] = "manual"
+  ) {
+    // 1. Instant local update — no waiting on the network to show the tap.
+    onLog?.({ itemId: item.id, date, value, detail, na: naFlag, source });
+    setFlash(true);
+    setTimeout(() => setFlash(false), 300);
+    // 2. Persist + refresh the day's scores.
+    const r = await postLog({ type: "item", itemId: item.id, date, value, detail, na: naFlag, source });
+    onDay(r.day);
+  }
+
+  const naBtn = (
     <button
-      onClick={async () => {
-        const r = await postLog({ type: "item", itemId: item.id, date, value: null, na: !na });
-        onDay(r.day);
-      }}
-      className={`text-[10px] px-1.5 py-0.5 rounded ${na ? "bg-zinc-600 text-white" : "text-zinc-600"}`}
+      onClick={() => send(null, undefined, !na)}
+      className={`text-[10px] px-1.5 py-1 rounded ${na ? "bg-zinc-500 text-white font-medium" : "text-zinc-500"}`}
       title="Mark not applicable today"
     >
       N/A
     </button>
   );
-}
 
-export default function ItemRow({ item, log, date, onDay }: Props) {
-  const [busy, setBusy] = useState(false);
-  const na = !!log?.na;
-
-  async function send(value: number | null, detail?: Record<string, unknown>, source = "manual") {
-    setBusy(true);
-    const r = await postLog({ type: "item", itemId: item.id, date, value, detail, na: false, source });
-    onDay(r.day);
-    setBusy(false);
-  }
-
-  const rowCls = `flex items-center justify-between gap-2 py-2.5 ${na ? "opacity-40" : ""}`;
+  const rowCls = `flex items-center justify-between gap-2 py-3 ${na ? "opacity-40" : ""}`;
+  const name = <span className="text-[15px] text-zinc-100">{item.name}</span>;
 
   // ----- multi-slot binary (insulin) -----
   const binCfg = item.config as BinaryConfig;
@@ -45,24 +51,23 @@ export default function ItemRow({ item, log, date, onDay }: Props) {
     const detail = (log?.detail ?? {}) as Record<string, boolean | "na">;
     return (
       <div className={rowCls}>
-        <span className="text-sm">{item.name}</span>
+        {name}
         <div className="flex gap-1.5 items-center">
           {(binCfg.slotLabels ?? []).map((slot) => {
             const v = detail[slot];
             return (
               <button
-                key={slot}
-                disabled={busy}
+                key={`${slot}-${String(v)}`}
                 onClick={() => {
                   const next = v === true ? "na" : v === "na" ? false : true;
                   send(null, { ...detail, [slot]: next });
                 }}
-                className={`text-xs px-2 py-1.5 rounded-lg border ${
+                className={`text-sm px-3 py-2 rounded-lg border font-medium ${
                   v === true
-                    ? "bg-emerald-600 border-emerald-600 text-white"
+                    ? "bg-emerald-500 border-emerald-500 text-zinc-950 animate-pop"
                     : v === "na"
-                      ? "bg-zinc-700 border-zinc-700 text-zinc-300 line-through"
-                      : "border-zinc-700 text-zinc-400"
+                      ? "bg-zinc-600 border-zinc-600 text-zinc-300 line-through"
+                      : "bg-zinc-800 border-zinc-500 text-zinc-200"
                 }`}
               >
                 {slot.slice(0, 1).toUpperCase() + slot.slice(1, 3)}
@@ -79,17 +84,19 @@ export default function ItemRow({ item, log, date, onDay }: Props) {
     const done = !na && !!log?.value;
     return (
       <div className={rowCls}>
-        <span className="text-sm">{item.name}</span>
+        {name}
         <div className="flex items-center gap-2">
-          {naButton(item, date, onDay, na)}
+          {naBtn}
           <button
-            disabled={busy}
+            key={String(done)}
             onClick={() => send(done ? 0 : 1)}
-            className={`w-9 h-9 rounded-full border text-lg leading-none ${
-              done ? "bg-emerald-600 border-emerald-600" : "border-zinc-600 text-zinc-500"
+            className={`w-11 h-11 rounded-full border-2 text-xl leading-none font-bold ${
+              done
+                ? "bg-emerald-500 border-emerald-500 text-zinc-950 animate-pop"
+                : "bg-zinc-800 border-zinc-500 text-zinc-600"
             }`}
           >
-            {done ? "✓" : ""}
+            ✓
           </button>
         </div>
       </div>
@@ -100,30 +107,45 @@ export default function ItemRow({ item, log, date, onDay }: Props) {
   if (item.shape === "quantity") {
     const cfg = item.config as QuantityConfig;
     const v = na ? 0 : (log?.value ?? 0);
+    const pct = Math.min(100, (v / cfg.target) * 100);
     return (
-      <div className={rowCls}>
-        <div>
-          <span className="text-sm">{item.name}</span>
-          <div className="text-xs text-zinc-500">
-            {v}/{cfg.target} {cfg.unit}
+      <div className={`py-3 ${na ? "opacity-40" : ""}`}>
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex-1">
+            {name}
+            <div className={`text-sm tabular-nums ${pct >= 100 ? "text-emerald-400 font-medium" : "text-zinc-400"}`}>
+              {v} / {cfg.target} {cfg.unit} {pct >= 100 && "✓"}
+            </div>
+            {/* progress bar = immediate visual confirmation of each tap */}
+            <div className="h-1.5 mt-1.5 rounded-full bg-zinc-700 overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all duration-300 ${
+                  pct >= 100 ? "bg-emerald-400" : "bg-emerald-600"
+                }`}
+                style={{ width: `${pct}%` }}
+              />
+            </div>
           </div>
-        </div>
-        <div className="flex items-center gap-2">
-          {naButton(item, date, onDay, na)}
-          <button
-            disabled={busy || v <= 0}
-            onClick={() => send(Math.max(0, v - (cfg.step ?? 1)))}
-            className="w-9 h-9 rounded-full border border-zinc-600 text-zinc-400"
-          >
-            −
-          </button>
-          <button
-            disabled={busy}
-            onClick={() => send(v + (cfg.step ?? 1))}
-            className="w-9 h-9 rounded-full bg-zinc-800 border border-zinc-600"
-          >
-            +
-          </button>
+          <div className="flex items-center gap-2">
+            {naBtn}
+            <button
+              disabled={v <= 0}
+              onClick={() => send(Math.max(0, v - (cfg.step ?? 1)))}
+              className="w-11 h-11 rounded-full bg-zinc-800 border-2 border-zinc-500 text-zinc-200 text-xl disabled:opacity-30"
+            >
+              −
+            </button>
+            <button
+              onClick={() => send(v + (cfg.step ?? 1))}
+              className={`w-11 h-11 rounded-full border-2 text-xl font-medium ${
+                flash
+                  ? "bg-emerald-500 border-emerald-500 text-zinc-950"
+                  : "bg-zinc-700 border-zinc-400 text-zinc-100"
+              }`}
+            >
+              +
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -133,30 +155,47 @@ export default function ItemRow({ item, log, date, onDay }: Props) {
   if (item.shape === "limit") {
     const cfg = item.config as LimitConfig;
     const v = na ? 0 : (log?.value ?? 0);
+    const over = v > cfg.cap;
     return (
-      <div className={rowCls}>
-        <div>
-          <span className="text-sm">{item.name}</span>
-          <div className="text-xs text-zinc-500">
-            {v} of max {cfg.cap} {cfg.unit}
+      <div className={`py-3 ${na ? "opacity-40" : ""}`}>
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex-1">
+            {name}
+            <div className={`text-sm tabular-nums ${over ? "text-red-400 font-semibold" : "text-zinc-400"}`}>
+              {v} of max {cfg.cap} {cfg.unit} {over && "— over!"}
+            </div>
+            {/* dot per unit up to cap; extras go red */}
+            <div className="flex gap-1 mt-1.5">
+              {Array.from({ length: Math.max(cfg.cap, v) }, (_, i) => (
+                <span
+                  key={i}
+                  className={`w-3 h-3 rounded-full ${
+                    i < v ? (i < cfg.cap ? "bg-amber-400" : "bg-red-500") : "bg-zinc-700"
+                  }`}
+                />
+              ))}
+            </div>
           </div>
-        </div>
-        <div className="flex items-center gap-2">
-          {naButton(item, date, onDay, na)}
-          <button
-            disabled={busy || v <= 0}
-            onClick={() => send(Math.max(0, v - 1))}
-            className="w-9 h-9 rounded-full border border-zinc-600 text-zinc-400"
-          >
-            −
-          </button>
-          <button
-            disabled={busy}
-            onClick={() => send(v + 1)}
-            className={`w-9 h-9 rounded-full border ${v >= cfg.cap ? "bg-red-900/60 border-red-800" : "bg-zinc-800 border-zinc-600"}`}
-          >
-            +
-          </button>
+          <div className="flex items-center gap-2">
+            {naBtn}
+            <button
+              disabled={v <= 0}
+              onClick={() => send(Math.max(0, v - 1))}
+              className="w-11 h-11 rounded-full bg-zinc-800 border-2 border-zinc-500 text-zinc-200 text-xl disabled:opacity-30"
+            >
+              −
+            </button>
+            <button
+              onClick={() => send(v + 1)}
+              className={`w-11 h-11 rounded-full border-2 text-xl font-medium ${
+                v >= cfg.cap
+                  ? "bg-red-900/70 border-red-600 text-red-200"
+                  : "bg-zinc-700 border-zinc-400 text-zinc-100"
+              }`}
+            >
+              +
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -167,19 +206,20 @@ export default function ItemRow({ item, log, date, onDay }: Props) {
     const cfg = item.config as RatingConfig;
     const v = na ? null : (log?.value ?? null);
     return (
-      <div className={`py-2.5 ${na ? "opacity-40" : ""}`}>
+      <div className={`py-3 ${na ? "opacity-40" : ""}`}>
         <div className="flex items-center justify-between">
-          <span className="text-sm">{item.name}</span>
-          {naButton(item, date, onDay, na)}
+          {name}
+          {naBtn}
         </div>
-        <div className="flex gap-1.5 mt-1.5">
+        <div className="flex gap-1.5 mt-2">
           {Array.from({ length: cfg.max + 1 }, (_, i) => (
             <button
-              key={i}
-              disabled={busy}
+              key={`${i}-${v === i}`}
               onClick={() => send(i)}
-              className={`flex-1 text-xs py-1.5 rounded-lg border ${
-                v === i ? "bg-emerald-600 border-emerald-600 text-white" : "border-zinc-700 text-zinc-400"
+              className={`flex-1 text-xs py-2.5 rounded-lg border font-medium ${
+                v === i
+                  ? "bg-emerald-500 border-emerald-500 text-zinc-950 animate-pop"
+                  : "bg-zinc-800 border-zinc-600 text-zinc-300"
               }`}
             >
               {cfg.labels?.[i] ?? i}
@@ -195,16 +235,19 @@ export default function ItemRow({ item, log, date, onDay }: Props) {
     const v = log?.value ?? null;
     return (
       <div className={rowCls}>
-        <span className="text-sm">{item.name}</span>
-        <input
-          type="number"
-          min={0}
-          max={100}
-          defaultValue={v ?? ""}
-          placeholder="%"
-          onBlur={(e) => e.target.value !== "" && send(Number(e.target.value))}
-          className="w-20 rounded-lg bg-zinc-900 border border-zinc-700 px-2 py-1.5 text-sm text-right"
-        />
+        {name}
+        <div className="flex items-center gap-2">
+          {flash && <span className="text-xs text-emerald-400">saved ✓</span>}
+          <input
+            type="number"
+            min={0}
+            max={100}
+            defaultValue={v ?? ""}
+            placeholder="%"
+            onBlur={(e) => e.target.value !== "" && send(Number(e.target.value))}
+            className="w-20 rounded-lg bg-zinc-800 border-2 border-zinc-500 px-2 py-2 text-base text-right text-zinc-100"
+          />
+        </div>
       </div>
     );
   }

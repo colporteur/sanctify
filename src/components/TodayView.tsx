@@ -17,7 +17,12 @@ export default function TodayView() {
 
   const { date, domains, items, logs, cleaningTasks, cleaningLogs } = data;
   const day = data.day;
-  const onDay = (d: DayScore) => setData({ ...data, day: d });
+  const onDay = (d: DayScore) => setData((cur) => (cur ? { ...cur, day: d } : cur));
+  // Optimistic: reflect a tap in the row immediately, before the server responds.
+  const onLog = (l: import("@/lib/types").LogEntry) =>
+    setData((cur) =>
+      cur ? { ...cur, logs: [...cur.logs.filter((x) => x.itemId !== l.itemId), l] } : cur
+    );
 
   // hour-limit items are rendered as timers; everything else as rows
   const isTimerItem = (id: string) => {
@@ -44,59 +49,62 @@ export default function TodayView() {
         const dScore = day.domains.find((d) => d.domainId === domain.id)?.score ?? null;
         if (dItems.length === 0 && domain.id !== "home") return null;
         return (
-          <section key={domain.id} className="rounded-2xl bg-zinc-900/60 border border-zinc-800 px-4 py-2">
-            <div className="flex items-center justify-between py-1.5 border-b border-zinc-800">
-              <h2 className="text-sm font-medium">
+          <section key={domain.id} className="rounded-2xl bg-zinc-800/60 border border-zinc-700 px-4 py-2">
+            <div className="flex items-center justify-between py-2 border-b border-zinc-700">
+              <h2 className="text-[15px] font-semibold">
                 {domain.icon} {domain.name}
               </h2>
-              <span className="text-sm font-semibold text-zinc-300">
+              <span
+                className={`text-base font-bold tabular-nums ${
+                  dScore == null ? "text-zinc-500" : dScore >= 80 ? "text-emerald-400" : dScore >= 50 ? "text-amber-400" : "text-red-400"
+                }`}
+              >
                 {dScore == null ? "–" : Math.round(dScore)}
               </span>
             </div>
-            <div className="divide-y divide-zinc-800/60">
+            <div className="divide-y divide-zinc-700/50">
               {dItems.map((item) =>
                 item.shape === "checklist" ? (
                   <div key={item.id} className="py-2.5">
-                    <div className="text-sm mb-1.5">{item.name}</div>
+                    <div className="text-[15px] text-zinc-100 mb-1.5">{item.name}</div>
                     {cleaningTasks.length === 0 && (
-                      <div className="text-xs text-zinc-500">Nothing due today 🎉</div>
+                      <div className="text-sm text-zinc-400">Nothing due today 🎉</div>
                     )}
                     {cleaningTasks.map((t) => {
                       const cl = cleaningLogs.find((l) => l.taskId === t.id);
+                      const done = !!cl?.done;
                       return (
                         <button
-                          key={t.id}
+                          key={`${t.id}-${done}`}
                           onClick={async () => {
-                            const r = await postLog({
-                              type: "cleaning",
-                              taskId: t.id,
-                              date,
-                              done: !cl?.done,
-                            });
+                            // Optimistic flip first, then persist.
                             setData((d) =>
                               d
                                 ? {
                                     ...d,
-                                    day: r.day,
                                     cleaningLogs: [
                                       ...d.cleaningLogs.filter((l) => l.taskId !== t.id),
-                                      { taskId: t.id, date, done: !cl?.done, na: false },
+                                      { taskId: t.id, date, done: !done, na: false },
                                     ],
                                   }
                                 : d
                             );
+                            const r = await postLog({ type: "cleaning", taskId: t.id, date, done: !done });
+                            onDay(r.day);
                           }}
-                          className="flex items-center gap-2 w-full py-1.5 text-left"
+                          className="flex items-center gap-2.5 w-full py-2 text-left"
                         >
                           <span
-                            className={`w-5 h-5 rounded border text-xs flex items-center justify-center ${
-                              cl?.done ? "bg-emerald-600 border-emerald-600" : "border-zinc-600"
+                            className={`w-7 h-7 shrink-0 rounded-lg border-2 text-sm font-bold flex items-center justify-center ${
+                              done
+                                ? "bg-emerald-500 border-emerald-500 text-zinc-950 animate-pop"
+                                : "bg-zinc-800 border-zinc-500"
                             }`}
                           >
-                            {cl?.done ? "✓" : ""}
+                            {done ? "✓" : ""}
                           </span>
-                          <span className="text-xs text-zinc-300">
-                            <span className="text-zinc-500">{t.area}:</span> {t.task}
+                          <span className={`text-sm ${done ? "text-zinc-500 line-through" : "text-zinc-200"}`}>
+                            <span className={done ? "" : "text-zinc-400"}>{t.area}:</span> {t.task}
                           </span>
                         </button>
                       );
@@ -109,6 +117,7 @@ export default function TodayView() {
                     log={logs.find((l) => l.itemId === item.id)}
                     date={date}
                     onDay={onDay}
+                    onLog={onLog}
                   />
                 )
               )}
@@ -125,10 +134,10 @@ export default function TodayView() {
 function WeightEntry({ date }: { date: string }) {
   const [saved, setSaved] = useState(false);
   return (
-    <section className="rounded-2xl bg-zinc-900/60 border border-zinc-800 px-4 py-3 flex items-center justify-between">
-      <span className="text-sm">⚖️ Weight (tracked, unscored)</span>
+    <section className="rounded-2xl bg-zinc-800/60 border border-zinc-700 px-4 py-3 flex items-center justify-between">
+      <span className="text-[15px] text-zinc-100">⚖️ Weight (tracked, unscored)</span>
       <div className="flex items-center gap-2">
-        {saved && <span className="text-xs text-emerald-400">saved</span>}
+        {saved && <span className="text-sm text-emerald-400 font-medium">saved ✓</span>}
         <input
           type="number"
           step="0.1"
@@ -142,7 +151,7 @@ function WeightEntry({ date }: { date: string }) {
             });
             setSaved(true);
           }}
-          className="w-24 rounded-lg bg-zinc-950 border border-zinc-700 px-2 py-1.5 text-sm text-right"
+          className="w-24 rounded-lg bg-zinc-800 border-2 border-zinc-500 px-2 py-2 text-base text-right text-zinc-100"
         />
       </div>
     </section>
