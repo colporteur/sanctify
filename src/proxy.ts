@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifySessionToken, SESSION_COOKIE } from "./lib/session";
 
-const PUBLIC = ["/login", "/api/auth/login", "/manifest.webmanifest", "/sw.js", "/icons"];
+const PUBLIC = ["/login", "/api/auth/login", "/api/setup", "/manifest.webmanifest", "/sw.js", "/icons"];
 
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
